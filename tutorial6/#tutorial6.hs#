@@ -1,0 +1,165 @@
+-- Informatics 1 - Introduction to Computation
+-- Functional Programming Tutorial 6
+--
+-- Week 7(29 Oct.-02 Nov.)
+
+--module Tutorial6 where
+
+import LSystem
+import Test.QuickCheck
+
+pathExample = (Go 30 :#: Turn 120 :#: Go 30 :#: Turn 120 :#:  Go 30)
+
+-- Exercise 1
+
+-- 1a. split
+split :: Command -> [Command]
+split (Go x) = [Go x]
+split (Turn x) = [Turn x]
+split Sit = []
+split (p:#:q) = split p ++ split q
+
+-- 1b. join
+join :: [Command] -> Command
+join (c:[]) = c 
+join [Go a, Sit] = Go a
+join [Turn a,Sit] = Turn a
+join (c:cmds) = if c==Sit then (join cmds) else (c :#: join cmds)
+
+-- 1c. equivalent
+equivalent :: Command -> Command -> Bool
+equivalent cmd1 cmd2 = split cmd1 == split cmd2
+
+-- 1d. testing join and split
+prop_split_join :: Command -> Bool
+prop_split_join cmd = equivalent (join (split cmd)) cmd 
+
+prop_split :: Command -> Bool
+prop_split cmd = and [ (c /= Sit)| c <- split cmd]
+
+
+-- Exercise 2
+
+-- 2a. copy
+copy :: Int -> Command -> Command
+copy n cmd = join (replicate n cmd)
+
+-- 2b. pentagon
+pentagon :: Distance -> Command
+pentagon d = copy 5 (Go d :#: Turn 72.0) 
+
+-- 2c. polygon
+polygon :: Distance -> Int -> Command
+polygon d n = copy n (Go d :#: Turn angle)
+ where
+ angle = 360/(fromIntegral n)
+
+
+-- Exercise 3
+-- 3a. spiral
+
+test = Go 30.0 :#: Turn 30.0 :#: Go 35.0 :#: Turn 30.0 :#: Go 40.0 :#: Turn 30.0 :#: Go 45.0 :#: Turn 30.0
+
+spiral :: Distance -> Int -> Distance -> Angle -> Command
+spiral _ 0 _ _ = Sit
+spiral d1 n step angle = (Go d1 :#: Turn angle) :#: spiral (d1+step) (n-1) step angle
+
+
+-- Exercise 4
+-- 4a. optimise
+-- Remember that Go does not take negative arguments.
+
+optimise :: Command -> Command
+optimise (Go 0) = Sit
+optimise (Go d :#: Go e) = Go (d+e)
+optimise (Turn 0) = Sit
+optimise (Turn a :#: Turn b) = Turn (a+b)
+optimise (Go a) = Go a
+optimise (Turn a) = Turn a
+{-
+ where
+ a = [ i | i <- split cmd, i == (Turn a)]
+ b = [ j | d <- split cmd, j == (Go a)]
+ c = [ k | k <- split cmd, k == Sit]
+-}
+
+-- L-Systems
+
+example = let inDirection angle = Branch (Turn angle :#: Go 100) in
+          join (map inDirection [20,40..360])
+
+
+-- 5a. arrowhead
+arrowhead :: Int -> Command
+arrowhead x = f x
+ where
+ f 0 = GrabPen red :#: Go 10
+ f x = g (x-1) :#: p :#: f (x-1) :#: p :#: g (x-1)
+ g 0 = GrabPen green :#: Go 10
+ g x = f (x-1) :#: n :#: g (x-1) :#: n :#: f (x-1)
+ p = Turn 60
+ n = Turn (-60)
+
+--------------------------------------------------
+--------------------------------------------------
+---------------- Tutorial Activities -------------
+--------------------------------------------------
+--------------------------------------------------
+
+-- 6. snowflake
+
+snowflake :: Int -> Command
+snowflake x = f x :#: n :#: n :#: f x :#: n :#: n :#: f x :#: n :#: n :#: f x
+ where
+ f 0 = GrabPen green :#: Go 10
+ f x = f (x-1) :#: p :#: f (x-1) :#: n :#: n :#: f (x-1) :#: p :#: f (x-1)
+ p = Turn 60
+ n =  Turn (-60)
+
+
+-- 7. hilbert
+hilbert :: Int -> Command
+hilbert x = l x
+ where
+ l 0 = Sit
+ l x = p :#: r (x-1) :#: f :#: n :#: l (x-1) :#: f :#: l (x-1) :#: n :#: f :#: r (x-1) :#: p
+ r 0 = Sit
+ r x = n :#: l (x-1) :#: f :#: p :#: r (x-1) :#: f :#: r (x-1) :#: p :#: f :#: l (x-1) :#: n
+ f = GrabPen green :#: Go 10
+ p = Turn 90
+ n = Turn (-90)
+ 
+
+--------------------------------------------------
+--------------------------------------------------
+---------------- Optional Material ---------------
+--------------------------------------------------
+--------------------------------------------------
+
+-- Bonus L-Systems
+
+peanoGosper :: Int -> Command
+peanoGosper x = f x
+ where
+ f 0 = GrabPen green :#: Go 4
+ f x = f (x-1) :#: p :#: g (x-1) :#: p :#: p :#: g (x-1) :#: n :#: f (x-1) :#: n :#: n :#: f (x-1) :#: f (x-1) :#: n :#: g (x-1) :#: p
+ g 0 = GrabPen red :#: Go 4
+ g x = n :#: f (x-1) :#: p :#: g (x-1) :#: g (x-1) :#: p :#: p :#: g (x-1) :#: p :#: f (x-1) :#: n :#: n :#: f (x-1) :#: n :#: g (x-1)
+ p = Turn 60
+ n = Turn (-60)
+
+cross :: Int -> Command
+cross x = f x :#: n :#: f x :#: n :#: f x :#: n :#: f x :#: n
+ where
+ f 0 = GrabPen red :#: Go 4
+ f x = f (x-1) :#: n :#: f (x-1) :#: p :#: f (x-1) :#: p :#: f (x-1) :#: f (x-1) :#: n :#: f (x-1) :#: n :#: f (x-1) :#: p :#: f (x-1)
+ p = Turn 90
+ n = Turn (-90)
+
+branch :: Int -> Command 
+branch x = 
+
+thirtytwo = undefined
+
+main :: IO ()
+main = display (cross 1)

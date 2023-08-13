@@ -1,0 +1,269 @@
+-- Informatics 1 - Introduction to Computation
+-- Functional Programming Tutorial 4
+--
+-- Week 5(15-19 Oct.)
+
+module Tutorial4 where
+
+import Data.List
+import Data.Char
+import Test.QuickCheck
+
+-- 1. Map
+
+-- a.
+doubles :: [Int] -> [Int]
+doubles xs = map double xs
+ where double x = 2 * x
+
+-- b.        
+penceToPounds :: [Int] -> [Float]
+penceToPounds arrpence = map f arrpence
+ where f x = (fromIntegral x)/100
+
+-- c.
+uppersComp :: String -> String
+uppersComp str = [ toUpper ch | ch <- str]
+
+
+-- 2. Filter
+-- a.
+alphas :: String -> String
+alphas str = filter isAlpha str 
+
+-- b.
+above :: Int -> [Int] -> [Int]
+above n xs = filter f xs
+ where f x = if x <= n then False else True
+
+-- c.
+unequals :: [(Int,Int)] -> [(Int,Int)]
+unequals tuplexs = filter f tuplexs
+ where f (x,y) = if x==y then False else True
+
+-- d.
+rmCharComp :: Char -> String -> String
+rmCharComp c str = [ ch | ch <- str,ch /= c]
+
+
+-- 3. Comprehensions vs. map & filter
+-- a.
+largeDoubles :: [Int] -> [Int]
+largeDoubles xs = [2 * x | x <- xs, x > 3]
+
+largeDoubles' :: [Int] -> [Int]
+largeDoubles' xs = map g (filter f xs)
+ where
+ f x = if x>3 then True else False
+ g x = 2*x
+prop_largeDoubles :: [Int] -> Bool
+prop_largeDoubles xs = largeDoubles xs == largeDoubles' xs 
+
+-- b.
+reverseEven :: [String] -> [String]
+reverseEven strs = [reverse s | s <- strs, even (length s)]
+
+reverseEven' :: [String] -> [String]
+reverseEven' str = map reverse (filter (even.length) str)
+-- or map reverse (filter evenL str) where
+-- evenL str = if even (length str) then True else False
+
+prop_reverseEven :: [String] -> Bool
+prop_reverseEven strs = reverseEven strs == reverseEven' strs
+
+
+
+-- 4. Foldr
+-- a.
+productRec :: [Int] -> Int
+productRec []     = 1
+productRec (x:xs) = x * productRec xs
+
+productFold :: [Int] -> Int
+productFold xs = foldr (*) 1 xs 
+
+prop_product :: [Int] -> Bool
+prop_product xs = productRec xs == productFold xs
+
+-- b.
+concatRec :: [[a]] -> [a]
+concatRec [] = []
+concatRec (str:strs) = str ++ concatRec strs
+
+concatFold :: [[a]] -> [a]
+concatFold str = foldr (++) [] str
+
+prop_concat :: [String] -> Bool
+prop_concat strs = concatRec strs == concatFold strs
+
+-- c.
+rmCharsRec :: String -> String -> String
+rmCharsRec [] [] = []
+rmCharsRec [] chlist = chlist 
+rmCharsRec str@(ch:chs) chlist = ch `rmCharComp` rmCharsRec chs chlist
+
+rmCharsFold :: String -> String -> String
+rmCharsFold str chlist = foldr rmCharComp chlist str
+
+prop_rmChars :: String -> String -> Bool
+prop_rmChars chars str = rmCharsRec chars str == rmCharsFold chars str
+
+
+type Matrix = [[Rational]]
+
+-- 5
+-- a.
+uniform :: [Int] -> Bool
+uniform [] = True
+uniform (x:[]) = True
+uniform (x:xs) = (x==head xs) && uniform xs
+
+-- b.
+
+lengthsOfRows :: Matrix -> [Int]
+lengthsOfRows xss = [length xs | xs <- xss]
+
+isAllEmptyLists :: Matrix -> Bool
+isAllEmptyLists xss = (sum . lengthsOfRows) xss == 0
+
+numRows :: Matrix -> Int
+numRows xss = (length.lengthsOfRows) xss
+
+numColumns :: Matrix -> Int
+numColumns xss = (head.lengthsOfRows) xss
+
+isRowMatrix :: Matrix -> Bool
+isRowMatrix xss = numRows xss == 1
+
+hasSameColumns :: Matrix -> Matrix -> Bool
+hasSameColumns [] [] = True
+hasSameColumns  _ [] = False
+hasSameColumns [] _  = False
+hasSameColumns (x:xs) (y:ys) = (length x == length y) && (xs `hasSameColumns` ys)
+
+valid :: Matrix -> Bool
+valid l
+ | isAllEmptyLists l = False
+ | isRowMatrix l     = True
+ | otherwise         = (uniform . lengthsOfRows) l
+
+-- 6.
+sumRows :: [Rational] -> [Rational] -> [Rational]
+sumRows [] [] = []
+sumRows (x:xs) (y:ys) = (x+y) : sumRows xs ys 
+
+
+plusM :: Matrix -> Matrix -> Matrix
+plusM m1@(x:xs) m2@(y:ys)
+ | not (valid m1) || not (valid m2)  = error "Input(s) invalid"
+ | not (numRows m1 == numRows m2) = error "Matrices are incompatible"
+ | not (m1 `hasSameColumns` m2) = error "Matrices are incompatible"
+ | m1 == [x] && m2 == [y] = (sumRows x y) : []
+ | otherwise = sumRows x y : plusM xs ys
+
+-- 7.
+
+prodRows :: [Rational] -> [Rational] -> Rational
+prodRows [] [] = 0
+prodRows (x:xs) (y:ys) = (x*y) + prodRows xs ys
+
+timesM :: Matrix -> Matrix -> Matrix
+timesM m1 m2
+ | not (valid m1) || not (valid m2) = error "Input(s) invalid"
+ | not (numColumns m1 == numRows m2) = error "Matrices are incompatible"
+ | otherwise = [[prodRows s t | t <- transpose m2] | s <- m1]
+
+-------------------------------------
+-------------------------------------
+-- Tutorial Activities
+-------------------------------------
+-------------------------------------
+
+-- 9.
+-- a.
+uppers :: String -> String
+uppers str = map toUpper str
+
+prop_uppers :: String -> Bool
+prop_uppers str = uppers str == uppersComp str
+
+-- b.
+rmChar ::  Char -> String -> String
+rmChar ch str = filter f str
+ where f c = if c==ch then False else True
+ 
+prop_rmChar :: Char -> String -> Bool
+prop_rmChar c str = rmCharComp c str == rmChar c str
+
+-- c.
+upperChars :: String -> String
+upperChars s = [toUpper c | c <- s, isAlpha c]
+
+upperChars' :: String -> String
+upperChars' str = map toUpper (filter f str)
+ where f c = if isAlpha c then True else False
+
+prop_upperChars :: String -> Bool
+prop_upperChars s = upperChars s == upperChars' s
+
+-- d.
+andRec :: [Bool] -> Bool
+andRec [] = True
+andRec (x:xs) = x && andRec xs
+
+andFold :: [Bool] -> Bool
+andFold l = foldr (&&) True l
+
+prop_and :: [Bool] -> Bool
+prop_and xs = andRec xs == andFold xs 
+
+-- 11.
+-- b.
+
+zipWith' :: (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith' f [] _ = []
+zipwith' f _ [] = []
+zipWith' f xs ys = [ fst x `f` snd x | x <- zip xs ys]
+
+
+-- c.
+zipWith'' :: (a -> b -> c) -> [a] -> [b] -> [c]
+zipWith'' f xs ys = map (uncurry f) (zip xs ys) 
+
+-------------------------------------
+-------------------------------------
+-- Optional material
+-------------------------------------
+-------------------------------------
+-- 13.
+
+-- Mapping functions
+mapMatrix :: (a -> b) -> [[a]] -> [[b]]
+mapMatrix f = undefined
+
+zipMatrix :: (a -> b -> c) -> [[a]] -> [[b]] -> [[c]]
+zipMatrix f = undefined
+
+-- All ways of deleting a single element from a list
+removes :: [a] -> [[a]]     
+removes = undefined
+
+-- Produce a matrix of minors from a given matrix
+minors :: Matrix -> [[Matrix]]
+minors m = undefined
+
+-- A matrix where element a_ij = (-1)^(i + j)
+signMatrix :: Int -> Int -> Matrix
+signMatrix w h = undefined
+        
+determinant :: Matrix -> Rational
+determinant = undefined
+
+cofactors :: Matrix -> Matrix
+cofactors m = undefined        
+                
+scaleMatrix :: Rational -> Matrix -> Matrix
+scaleMatrix k = undefined
+
+inverse :: Matrix -> Matrix
+inverse m = undefined

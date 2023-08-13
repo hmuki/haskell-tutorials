@@ -1,0 +1,136 @@
+-- Informatics 1 - Introduction to Computation
+-- Functional Programming Tutorial 1
+--
+-- Week 1(24-28 Sep.)
+
+import Data.Char
+import Data.List
+import Test.QuickCheck
+import Control.Monad (guard)
+
+
+-- 1. halveEvens
+
+-- List-comprehension version
+halveEvens :: [Int] -> [Int]
+halveEvens xs = [x `div` 2 | x<-xs,x `mod` 2 == 0]
+
+
+-- This is for testing only. Do not try to understand this (yet).
+halveEvensReference :: [Int] -> [Int]
+halveEvensReference = (>>= \x -> guard (x `mod` 2 == 0) >>= \_ -> return $ x `div` 2)
+
+
+-- -- Mutual test
+prop_halveEvens :: [Int] -> Bool
+prop_halveEvens xs = halveEvens xs == halveEvensReference xs
+
+
+-- 2. inRange
+
+-- List-comprehension version
+inRange :: Int -> Int -> [Int] -> [Int]
+inRange lo hi xs = [x | x<-xs,x>=lo && x<=hi]
+
+
+-- 3. countPositives: sum up all the positive numbers in a list
+
+-- List-comprehension version
+countPositives :: [Int] -> Int
+countPositives list = length [x | x<-list,x > 0]
+
+
+-- 4. multDigits
+
+-- List-comprehension version
+multDigits :: String -> Int
+multDigits str = product [digitToInt x | x<-str,isDigit x]
+
+countDigits :: String -> Int
+countDigits str = length [digitToInt x | x<-str,isDigit x]
+
+prop_multDigits :: String -> Bool
+prop_multDigits xs = multDigits xs <= 9^(countDigits xs)
+
+
+-- 5. capitalise
+
+-- List-comprehension version
+capitalise :: String -> String
+capitalise s = toUpper( head s) : [toLower xs | xs<-tail s]
+
+
+-- 6. title
+
+lowercase :: String -> String
+lowercase xs = [toLower x | x<-xs]
+
+-- List-comprehension version
+title :: [String] -> [String]
+title xss = capitalise ([ x | x<-head xss]) : [if length y>=4 then capitalise y else lowercase y | y<- tail xss]
+
+
+-- 7. signs
+
+sign :: Int -> Char
+sign i = if i>=1 && i<=9 then '+' else if i==0 then '0' else if i>=(-9) && i<=(-1) then '-' else error "My error"
+
+signs :: [Int] -> String
+signs xs = [if x >= (-9) && x <= 9 then sign x else '\0' | x<-xs]
+
+
+-- 8. score
+
+
+score :: Char -> Int
+score x  = if not (isAlpha x) then 0 else if isUpper x && (toLower x=='a'||toLower x=='e'||toLower x=='i'||toLower x=='o'||toLower x=='u') then 3 else if isUpper x && not (toLower x=='a'||toLower x=='e'||toLower x=='i'||toLower x=='o'||toLower x=='u') then 2 else if not (isUpper x) && (toLower x=='a'||toLower x=='e'||toLower x=='i'||toLower x=='o'||toLower x=='u') then 2 else 1
+
+totalScore :: String -> Int
+totalScore xs = product [score x | x<-xs,isAlpha x]
+
+prop_totalScore_pos :: String -> Bool
+prop_totalScore_pos xs = totalScore xs >= 1
+
+-- Tutorial Activity
+-- 10. pennypincher
+
+-- List-comprehension version.
+discount:: Int -> Int
+discount price = round( 0.9 * fromIntegral price)
+
+pennypincher :: [Int] -> Int
+pennypincher prices = sum [discount x | x <- prices,discount x<=19900, x>0]
+
+-- -- And the test itself
+prop_pennypincher :: [Int] -> Bool
+prop_pennypincher xs = pennypincher xs <= sum [x | x<-xs,x>0]
+
+-- Optional Material
+
+-- 11. crosswordFind
+
+-- List-comprehension version
+crosswordFind :: Char -> Int -> Int -> [String] -> [String]
+crosswordFind letter pos len words = [str | str <- words,length str == len,(str !! pos)==letter] 
+
+
+-- 12. search
+
+-- List-comprehension version
+
+search :: String -> Char -> [Int]
+search str goal = [y | (x,y) <- (zip str [0..]),x==goal]
+
+-- Depending on the property you want to test, you might want to change the type signature
+prop_search :: String -> Char -> Bool
+prop_search str goal = sum [y | (x,y)<-(zip str [0..]),x==goal] <= sum [y | (x,y)<-(zip str [0..])]
+
+
+-- 13. contains
+
+contains :: String -> String -> Bool
+contains str substr = 
+
+-- Depending on the property you want to test, you might want to change the type signature
+prop_contains :: String -> String -> Bool
+prop_contains str1 str2 = undefined

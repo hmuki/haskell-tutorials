@@ -1,0 +1,242 @@
+-- Informatics 1 - Introduction to Computation
+-- Functional Programming Tutorial 3
+--
+-- Week 4(08-12 Oct.)
+
+module Tutorial3 where
+
+import Data.List (nub)
+import Data.Char
+import Test.QuickCheck
+import Network.HTTP (simpleHTTP,getRequest,getResponseBody)
+
+-- <type decls>
+
+type Link = String
+type Name = String
+type Email = String
+type HTML = String
+type URL = String
+
+-- </type decls>
+-- <sample data>
+
+testURL     = "http://www.inf.ed.ac.uk/teaching/courses/inf1/A/testpage.html"
+
+testHTML :: String
+testHTML =    "<html>"
+           ++ "<head>"
+           ++ "<title>FP: Tutorial 3</title>"
+           ++ "</head>"
+           ++ "<body>"
+           ++ "<h1>A Boring test page</h1>"
+           ++ "<h2>for tutorial 3</h2>"
+           ++ "<a href=\"http://www.inf.ed.ac.uk/teaching/courses/inf1/A/testpage.html\">FP Website</a><br>"
+           ++ "<b>Lecturer:</b> <a href=\"mailto:dts@inf.ed.ac.uk\">Don Sannella</a><br>"
+           ++ "<b>TA:</b> <a href=\"mailto:irene.vp@ed.ac.uk\">Irene Vlassi</a>"
+           ++ "</body>"
+           ++ "</html>"
+
+testLinks :: [Link]
+testLinks = [ "http://www.inf.ed.ac.uk/teaching/courses/inf1/A/testpage.html\">FP Website</a><br><b>Lecturer:</b> "
+            , "mailto:dts@inf.ed.ac.uk\">Don Sannella</a><br><b>TA:</b> "
+            , "mailto:irene.vp@ed.ac.uk\">Irene Vlassi</a></body></html>" ]
+
+
+testAddrBook :: [(Name,Email)]
+testAddrBook = [ ("Don Sannella","dts@inf.ed.ac.uk")
+               , ("Irene Vlassi","irene.vp@ed.ac.uk")]
+
+-- </sample data>
+-- <system interaction>
+
+getURL :: String -> IO String
+getURL url = simpleHTTP (getRequest url) >>= getResponseBody
+
+emailsFromURL :: URL -> IO ()
+emailsFromURL url =
+  do html <- getURL url
+     let emails = (emailsFromHTML html)
+     putStr (ppAddrBook emails)
+
+emailsByNameFromURL :: URL -> Name -> IO ()
+emailsByNameFromURL url name =
+  do html <- getURL url
+     let emails = (emailsByNameFromHTML html name)
+     putStr (ppAddrBook emails)
+
+-- </system interaction>
+-- <exercises>
+
+-- 1.
+areEqual :: String -> String -> Bool
+areEqual [] [] = True
+areEqual (s1:xs1) (s2:xs2)
+   | isAlpha s1 && isAlpha s2 = (toLower s1 == toLower s2) && areEqual xs1 xs2
+   | otherwise                = (s1 == s2) && areEqual xs1 xs2
+   
+sameString :: String -> String -> Bool
+sameString [] [] = True
+sameString str1 str2
+   | length str1 == length str2 = areEqual str1 str2
+   | otherwise                  = False
+-- 2.
+prefix :: String -> String -> Bool
+prefix str1 str2
+   | length str1 > length str2  = False
+   | length str1 == length str2 = sameString str1 str2
+   | otherwise                  = sameString str1 (take l str2)
+ where l = length str1  
+prop_prefix_pos :: String -> Int -> Bool
+prop_prefix_pos str n =  prefix substr (map toLower str) &&
+                         prefix substr (map toUpper str)
+                           where
+                             substr  =  take n str
+
+prop_prefix_neg :: String -> Int -> Bool
+prop_prefix_neg str n = sameString str substr || (not $ prefix str substr)
+                          where substr = take n str
+        
+        
+-- 3.
+contains :: String -> String -> Bool
+contains str1 str2
+   | length str2 > length str1  = False
+   | length str2 == length str1 = sameString str1 str2
+   | otherwise                  = prefix str2 str1||(tail str1) `contains` str2
+   
+prop_contains :: String -> Int -> Int -> Bool
+prop_contains str n m = (map toLower str) `contains` substr1 && (map toUpper str) `contains` substr2
+ where
+  substr1 = take n str
+  substr2 = take m str
+-- 4.
+findStart :: String -> String -> String
+findStart _ [] = []
+findStart str1 str2
+   | not (str1 `prefix` str2) = (head str2) : findStart str1 (tail str2) 
+   | otherwise                = findStart str1 []
+   
+takeUntil :: String -> String -> String
+takeUntil [] str2 = str2
+takeUntil str1 str2
+   | str2 `contains` str1 = findStart str1 str2
+   | otherwise            = str2
+   
+findEnd :: String -> String -> String
+findEnd str1 str2 = reverse (findStart (reverse str1) (reverse str2))
+
+dropUntil :: String -> String -> String
+dropUntil [] _  = []
+dropUntil str1 str2
+   | str2 `contains` str1 = findEnd str1 str2
+   | otherwise            = []
+   
+-- 5.v cxz
+split :: String -> String -> [String]
+split [] _ = error "This is an error!"
+split _ [] = [[]]
+split s1 s2
+   | not (s2 `contains` s1) = [s2]
+   | s1 `prefix` s2         = split s1 (drop (g s1) s2)
+   | otherwise              = start : split s1 (dropUntil start s2)
+ where
+ start = takeUntil s1 s2 
+ g s1 = length s1
+reconstruct :: String -> [String] -> String
+reconstruct [] _   = error "This is an error!"
+reconstruct str [] = []
+reconstruct str (s1:xs1)
+    | xs1 == []       = s1 
+    | s1:xs1 == [""]  = []
+    | otherwise       =  s1 ++ str ++ reconstruct str xs1
+
+prop_split :: Char -> String -> String -> Bool
+prop_split c sep str = reconstruct sep' (split sep' str) `sameString` str
+  where sep' = c : sep
+
+-- 6.
+linksFromHTML :: HTML -> [Link]
+linksFromHTML hstring = tail (split "<a href=\"" hstring)
+
+testLinksFromHTML :: Bool
+testLinksFromHTML  =  linksFromHTML testHTML == testLinks
+
+
+-- 7.
+takeEmails :: [Link] -> [Link]
+takeEmails arrLinks = [str | str <- arrLinks, "mailto:" `prefix` str]
+
+
+-- 8.
+link2pair :: Link -> (Name, Email)
+link2pair str = the [(name,email) | let email = dropUntil "mailto:" (takeUntil "\"" str),let name = takeUntil "</" (dropUntil (email++"\">") str)]
+ where the [s] = s
+
+-- 9
+
+emailsFromHTML :: HTML -> [(Name,Email)]
+emailsFromHTML hstr = nub [ link2pair s | s <- ((takeEmails . linksFromHTML) hstr)]
+
+--sq :: Int -> Int
+--sq x = x * x
+--cube :: Int -> Int
+--cube x = x * x * x
+--single :: Int -> Int
+--single x = x
+
+--comb :: Int -> [Int]
+--comb x = [ el | let el = (cube . sq . single) x]
+
+testEmailsFromHTML :: Bool
+testEmailsFromHTML  =  emailsFromHTML testHTML == testAddrBook
+
+
+-- 10.
+findEmail :: Name -> [(Name, Email)] -> [(Name, Email)]
+findEmail str arrtuples = [ (n,m) | (n,m) <- arrtuples,n `contains` str]  
+
+
+-- 11.
+emailsByNameFromHTML :: HTML -> Name -> [(Name,Email)]
+emailsByNameFromHTML hstr nm = findEmail nm (emailsFromHTML hstr)
+
+
+-- Optional Material
+
+-- 14.
+splitName :: String -> [String]
+splitName [] = error "error"
+splitName str = filter (/="") $ (split " " str)
+
+extractInitials :: [String] -> String
+extractInitials str = [ head s | s <- str]
+
+hasInitials :: String -> Name -> Bool
+hasInitials [] _ = False
+hasInitials _ [] = False
+hasInitials str nm
+  | l str == l initials  = sameString str initials
+  | otherwise            = False
+ where
+   l xs = length xs
+   initials = extractInitials (splitName nm)
+-- 15.
+emailsByMatchFromHTML :: (Name -> Bool) -> HTML -> [(Name, Email)]
+emailsByMatchFromHTML = 
+
+emailsByInitialsFromHTML :: String -> HTML -> [(Name, Email)]
+emailsByInitialsFromHTML = undefined
+
+-- 16.
+
+-- If your criteria use parameters (like hasInitials), change the type signature.
+myCriteria :: Name -> Bool
+myCriteria = undefined
+
+emailsByMyCriteriaFromHTML :: HTML -> [(Name, Email)]
+emailsByMyCriteriaFromHTML = undefined
+
+-- 17.
+ppAddrBook :: [(Name, Email)] -> String
+ppAddrBook addr = unlines [ name ++ ": " ++ email | (name,email) <- addr ]
